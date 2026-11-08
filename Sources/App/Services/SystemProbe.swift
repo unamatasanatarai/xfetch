@@ -79,7 +79,22 @@ public enum SystemProbe {
         let cpuBrand = sysctlString("machdep.cpu.brand_string")
         let coreCount = ProcessInfo.processInfo.activeProcessorCount
         let cpuName = cpuBrand ?? (arch == "arm64" ? "Apple Silicon" : "Intel Core")
-        items.append(FetchItem(key: "CPU", value: "\(cpuName) (\(coreCount))"))
+
+        var pCores: Int32 = 0
+        var pSize = MemoryLayout<Int32>.size
+        let hasP = sysctlbyname("hw.perflevel0.logicalcpu", &pCores, &pSize, nil, 0) == 0
+
+        var eCores: Int32 = 0
+        var eSize = MemoryLayout<Int32>.size
+        let hasE = sysctlbyname("hw.perflevel1.logicalcpu", &eCores, &eSize, nil, 0) == 0
+
+        let coreDesc: String
+        if hasP && hasE && eCores > 0 {
+            coreDesc = "\(coreCount) Cores: \(pCores)P + \(eCores)E"
+        } else {
+            coreDesc = "\(coreCount)"
+        }
+        items.append(FetchItem(key: "CPU", value: "\(cpuName) (\(coreDesc))"))
 
         // 11. GPU (via Metal API)
         let gpus = MTLCopyAllDevices()

@@ -60,13 +60,28 @@ while IFS= read -r file; do
     sources+=("$file")
 done < <(find Sources/App -type f -name "*.swift" | sort)
 
-printf '%s\n' "Compiling ${app_name} v${VERSION} (Build ${BUILD_NUMBER}) (${#sources[@]} source files)..."
+printf '%s\n' "Compiling ${app_name} v${VERSION} (Build ${BUILD_NUMBER}) as Universal (arm64 + x86_64)..."
+tmp_arm64="${cache_dir}/${app_name}_arm64"
+tmp_x86_64="${cache_dir}/${app_name}_x86_64"
+
 swiftc -sdk "$sdk_path" \
+    -target "arm64-apple-macos${MIN_MACOS_VERSION}" \
     -O \
     -whole-module-optimization \
     -Xlinker -dead_strip \
     "${sources[@]}" \
-    -o "${macos_dir}/${app_name}"
+    -o "$tmp_arm64"
+
+swiftc -sdk "$sdk_path" \
+    -target "x86_64-apple-macos${MIN_MACOS_VERSION}" \
+    -O \
+    -whole-module-optimization \
+    -Xlinker -dead_strip \
+    "${sources[@]}" \
+    -o "$tmp_x86_64"
+
+lipo -create -output "${macos_dir}/${app_name}" "$tmp_arm64" "$tmp_x86_64"
+rm -f "$tmp_arm64" "$tmp_x86_64"
 
 printf '%s\n' "Generating ${app_name} Info.plist..."
 cat <<EOF >"${contents_dir}/Info.plist"
